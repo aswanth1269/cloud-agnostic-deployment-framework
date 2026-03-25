@@ -1,4 +1,4 @@
-name: Cloud Deployment Pipeline
+name: Policy-Driven Deployment Pipeline
 
 on:
   push:
@@ -23,10 +23,15 @@ jobs:
       - name: Install dependencies
         run: |
           cd app
-          npm install
+          npm ci || npm install
+
+      - name: Run automated tests
+        run: |
+          cd app
+          npm test
 
       - name: Build Docker image
-        run: docker build -t cloud-demo -f docker/Dockerfile .
+        run: docker build -t cloud-demo:latest -f docker/Dockerfile .
 
       - name: Success message
-        run: echo "Build pipeline completed successfully!"
+        run: echo "Policy-driven build pipeline completed successfully!"
