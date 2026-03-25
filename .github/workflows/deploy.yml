@@ -26,9 +26,8 @@ jobs:
           npm ci || npm install
 
       - name: Run automated tests
-        run: |
-          cd app
-          npm test
+        run: npm test
+        working-directory: ./app
 
       - name: Build Docker image
         run: docker build -t cloud-demo:latest -f docker/Dockerfile .
