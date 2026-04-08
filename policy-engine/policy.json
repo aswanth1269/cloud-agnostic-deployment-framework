@@ -1,0 +1,7 @@
+{
+  "deployment_policy": {
+    "preferred_cloud": "aws",
+    "cost_preference": "low",
+    "latency_requirement": "low"
+  }
+}

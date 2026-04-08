@@ -1,0 +1,74 @@
+# Kubernetes Deployment Configuration
+# This manifest deploys the cloud-agnostic demo application to any Kubernetes cluster
+# The deployment is cloud-provider agnostic and can be deployed to AWS, Azure, GCP, or on-premise clusters
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloud-agnostic-demo
+  labels:
+    app: cloud-agnostic-demo
+    version: v1
+spec:
+  # Number of application replicas
+  replicas: 1
+  
+  # Label selector to identify pods managed by this deployment
+  selector:
+    matchLabels:
+      app: cloud-agnostic-demo
+  
+  template:
+    metadata:
+      labels:
+        app: cloud-agnostic-demo
+    spec:
+      containers:
+        - name: cloud-agnostic-demo
+          # Container image - uses local image (loaded via Minikube or Docker daemon)
+          image: cloud-demo
+          # Never pull image from registry - use local image only
+          # This is ideal for development and Minikube environments
+          imagePullPolicy: Never
+          # Port exposed by the application
+          ports:
+            - containerPort: 3000
+              name: http
+          # Health check - ensures pod is ready to receive traffic
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+---
+# Kubernetes Service
+# Exposes the deployment to the cluster and enables load balancing across replicas
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: cloud-agnostic-demo-service
+  labels:
+    app: cloud-agnostic-demo
+spec:
+  # Service type - ClusterIP means internal cluster access only
+  type: ClusterIP
+  
+  # Pod selector - identifies which pods to expose
+  selector:
+    app: cloud-agnostic-demo
+  
+  # Port mapping configuration
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+      name: http

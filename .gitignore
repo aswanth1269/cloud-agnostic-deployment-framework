@@ -1,4 +1,30 @@
-node_modules
+# Dependencies
+node_modules/
+package-lock.json
+npm-debug.log
+
+# Environment
 .env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
 .DS_Store
-get
+desktop.ini
+Thumbs.db
+Minikube.lnk
+
+# Build
+dist/
+build/
+
+# Logs
+logs/
+*.log
