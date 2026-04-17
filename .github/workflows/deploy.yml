@@ -4,33 +4,45 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
-  build:
-
+  ci-cd:
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 18
 
-      - name: Install dependencies
-        run: |
-          cd app
-          npm ci || npm install
+      - name: Install app dependencies
+        working-directory: ./app
+        run: npm ci || npm install
 
       - name: Run automated tests
-        run: npm test
         working-directory: ./app
+        run: npm test
 
-      - name: Build Docker image
-        run: docker build -t cloud-demo:latest -f docker/Dockerfile .
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: v1.30.0
+
+      - name: Install Minikube
+        uses: medyagh/setup-minikube@latest
+        with:
+          kubernetes-version: v1.30.0
+          driver: docker
+
+      - name: Start Minikube
+        run: minikube start --driver=docker
+
+      - name: Run deployment
+        run: npm run deploy:k8s
 
       - name: Success message
-        run: echo "Policy-driven build pipeline completed successfully!"
+        run: echo "Policy-driven CI/CD pipeline completed successfully!"

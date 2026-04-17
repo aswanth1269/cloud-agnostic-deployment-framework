@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test ../tests/cloudSelector.test.js ../tests/policyEngine.test.js ../tests/server.test.js"
+    "test": "node --test ../tests/cloudSelector.test.js ../tests/policyEngine.test.js ../tests/deploy.test.js ../tests/server.test.js ../tests/argocdSync.test.js"
   },
   "keywords": [],
   "author": "",

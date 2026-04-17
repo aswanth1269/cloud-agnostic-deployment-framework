@@ -1,47 +1,25 @@
-/**
- * Cloud Selector Module
- * 
- * Implements a deterministic priority-based algorithm to select the appropriate
- * cloud provider based on deployment policies. Ensures consistent, repeatable
- * cloud selection decisions across different deployments.
- */
-
-// Valid cloud provider options
 const VALID_CLOUDS = new Set(["aws", "azure", "gcp"])
-
-/**
- * Cost-based cloud provider mappings
- * Maps cost preferences to cloud providers
- */
-const COST_TO_CLOUD = {
-  low: "gcp",        // GCP offers competitive pricing
-  medium: "azure",   // Azure balanced pricing
-  high: "aws"        // AWS premium features
-}
-
-/**
- * Latency-based cloud provider mappings
- * Maps latency requirements to cloud providers
- */
-const LATENCY_TO_CLOUD = {
-  low: "aws",        // AWS primary regions offer lowest latency
-  medium: "azure",   // Azure supports balanced latency profiles
-  high: "gcp"        // GCP can scale high-latency workloads
+const CLOUD_SLA = {
+  gcp: 99.9,
+  azure: 99.95,
+  aws: 99.99
 }
 
 /**
  * Selects the optimal cloud provider based on deployment policy
  * 
  * Priority hierarchy:
- * 1. preferred_cloud - explicit cloud preference (highest priority)
- * 2. cost_preference - cost optimization (fallback)
- * 3. latency_requirement - performance optimization (fallback)
- * 4. default: "aws" - if no conditions match
+ * 1. cost_preference - low cost maps to aws
+ * 2. latency_requirement - low latency maps to gcp
+ * 3. sla_requirement - minimum SLA maps to the closest matching provider
+ * 4. preferred_cloud - explicit cloud preference
+ * 5. default: "azure" - if no conditions match
  * 
  * @param {Object} policy - Deployment policy object
  * @param {string} [policy.preferred_cloud] - Preferred cloud (aws|azure|gcp)
  * @param {string} [policy.cost_preference] - Cost priority (low|medium|high)
  * @param {string} [policy.latency_requirement] - Latency priority (low|medium|high)
+ * @param {string|number} [policy.sla_requirement] - Minimum SLA target (for example: 99.95)
  * @returns {string} Selected cloud provider (aws|azure|gcp)
  * @throws {Error} If policy is not a valid object
  * 
@@ -58,31 +36,37 @@ const LATENCY_TO_CLOUD = {
  * selectCloud({ latency_requirement: "low" }) // returns "aws"
  */
 function selectCloud(policy) {
-  // Validate policy input
   if (!policy || typeof policy !== "object") {
     throw new Error("Policy must be a valid object")
   }
 
-  // Priority 1: Highest-priority rule - explicit cloud preference
+  const costPreference = String(policy.cost_preference || "").toLowerCase()
+  if (costPreference === "low") {
+    return "aws"
+  }
+
+  const latencyRequirement = String(policy.latency_requirement || "").toLowerCase()
+  if (latencyRequirement === "low") {
+    return "gcp"
+  }
+
+  const parsedSlaRequirement = Number(policy.sla_requirement)
+  if (Number.isFinite(parsedSlaRequirement)) {
+    const matchedCloud = Object.entries(CLOUD_SLA)
+      .sort((first, second) => first[1] - second[1])
+      .find(([, cloudSla]) => cloudSla >= parsedSlaRequirement)
+
+    if (matchedCloud) {
+      return matchedCloud[0]
+    }
+  }
+
   const preferredCloud = String(policy.preferred_cloud || "").toLowerCase()
   if (VALID_CLOUDS.has(preferredCloud)) {
     return preferredCloud
   }
 
-  // Priority 2: Second priority - cost-based fallback mapping
-  const costPreference = String(policy.cost_preference || "").toLowerCase()
-  if (COST_TO_CLOUD[costPreference]) {
-    return COST_TO_CLOUD[costPreference]
-  }
-
-  // Priority 3: Third priority - latency-based fallback mapping
-  const latencyRequirement = String(policy.latency_requirement || "").toLowerCase()
-  if (LATENCY_TO_CLOUD[latencyRequirement]) {
-    return LATENCY_TO_CLOUD[latencyRequirement]
-  }
-
-  // Default fallback if no conditions match
-  return "aws"
+  return "azure"
 }
 
 module.exports = {

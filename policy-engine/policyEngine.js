@@ -2,6 +2,18 @@ const fs = require("fs")
 const path = require("path")
 const { selectCloud } = require("./cloudSelector")
 
+const isTestRun =
+  process.env.NODE_ENV === "test" ||
+  process.argv.includes("--test") ||
+  process.env.npm_lifecycle_event === "test" ||
+  process.env.npm_command === "test"
+
+function logPolicyError(message) {
+  if (!isTestRun) {
+    console.error(message)
+  }
+}
+
 /**
  * Reads the deployment policy from a JSON file
  * @param {string} policyPath - Path to the policy.json file
@@ -13,7 +25,7 @@ function getDeploymentPolicy(policyPath = path.join(__dirname, "policy.json")) {
     const policy = JSON.parse(rawPolicy)
     return policy.deployment_policy || policy
   } catch (error) {
-    console.error(`Error reading policy file: ${error.message}`)
+    logPolicyError(`Error reading policy file: ${error.message}`)
     throw new Error(`Failed to load policy from ${policyPath}`)
   }
 }
@@ -33,7 +45,7 @@ function evaluatePolicy(policyPath = path.join(__dirname, "policy.json")) {
       selectedCloud
     }
   } catch (error) {
-    console.error(`Policy evaluation failed: ${error.message}`)
+    logPolicyError(`Policy evaluation failed: ${error.message}`)
     throw error
   }
 }

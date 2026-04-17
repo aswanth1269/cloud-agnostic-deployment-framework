@@ -16,8 +16,8 @@ The framework consists of four main components:
 
 1. **Policy Engine**: Reads deployment policies and evaluates cloud selection rules
 2. **Cloud Selector**: Deterministic logic for selecting the best cloud provider based on priorities
-3. **Deployment Engine**: Orchestrates Docker builds and Kubernetes deployments
-4. **CI/CD Pipeline**: Automated build and deployment on code push
+3. **Deployment Engine**: Orchestrates Docker builds, Minikube image loading, and Kubernetes deployments
+4. **Web UI + API**: Browser-based deployment form and `/deploy` endpoint
 
 ## Tech Stack
 
@@ -32,6 +32,9 @@ The framework consists of four main components:
 
 ```
 cloud-agnostic-deployment-framework/
+├── argocd/
+│   ├── application.yaml    # Optional Argo CD GitOps application
+│   └── README.md           # Argo CD setup and usage instructions
 ├── app/
 │   ├── server.js           # Express.js demo application
 │   └── package.json        # Node.js dependencies
@@ -83,7 +86,9 @@ File: `policy-engine/policy.json`
   "deployment_policy": {
     "preferred_cloud": "aws",
     "cost_preference": "low",
-    "latency_requirement": "low"
+    "latency_requirement": "low",
+    "sla_requirement": "99.95",
+    "sla_options": ["99.00", "99.50", "99.90", "99.95", "99.99"]
   }
 }
 ```
@@ -93,38 +98,40 @@ File: `policy-engine/policy.json`
 - **preferred_cloud**: Explicit cloud choice (aws | azure | gcp)
 - **cost_preference**: Cost priority (low | medium | high)
 - **latency_requirement**: Performance priority (low | medium | high)
+- **sla_requirement**: Required minimum uptime SLA target in percent (supported: 99.00 | 99.50 | 99.90 | 99.95 | 99.99)
+- **sla_options**: Optional list of allowed SLA tiers shown in policy metadata
 
 ### Cloud Selection Logic
 
 The `selectCloud(policy)` function implements a priority hierarchy:
 
-**Priority 1: preferred_cloud**
-- If `preferred_cloud` is valid (aws, azure, or gcp), it is always selected
-- Example: `preferred_cloud: "aws"` → returns "aws"
+**Priority 1: cost_preference**
+- If `cost_preference` is `low`, AWS is selected
 
-**Priority 2: cost_preference**
-- Only evaluated if `preferred_cloud` is missing or invalid
-- Mappings:
-  - `low` → gcp (lowest cost)
-  - `medium` → azure (medium cost)
-  - `high` → aws (premium features)
+**Priority 2: latency_requirement**
+- If `latency_requirement` is `low`, GCP is selected
 
-**Priority 3: latency_requirement**
-- Only evaluated if previous priorities don't match
-- Mappings:
-  - `low` → aws (lowest latency)
-  - `medium` → azure
-  - `high` → gcp
+**Priority 3: sla_requirement**
+- Selects the closest provider that meets the SLA target:
+  - 99.00 / 99.50 / 99.90 → GCP
+  - 99.95 → Azure
+  - 99.99 → AWS
 
-**Default**: Returns "aws" if no conditions match
+**Priority 4: preferred_cloud**
+- If `preferred_cloud` is valid (aws, azure, or gcp), it is selected
+
+**Default**: Returns "azure" if no conditions match
 
 ### Example Selections
 
 | Policy | Selected Cloud |
 |--------|----------------|
-| `preferred_cloud: "azure"` | azure (priority 1) |
-| `preferred_cloud: "invalid", cost_preference: "low"` | gcp (priority 2) |
-| `cost_preference: "medium", latency_requirement: "low"` | azure (priority 2) |
+| `cost_preference: "low"` | aws (priority 1) |
+| `latency_requirement: "low"` | gcp (priority 2) |
+| `sla_requirement: "99.50"` | gcp (priority 3) |
+| `sla_requirement: "99.95"` | azure (priority 3) |
+| `preferred_cloud: "azure"` | azure (priority 4) |
+| no matching inputs | azure (default) |
 
 ## Deployment Engine
 
@@ -139,11 +146,15 @@ The `deployment/deploy.js` script orchestrates the complete deployment workflow:
    ```bash
    docker build -t cloud-demo -f docker/Dockerfile .
    ```
-5. **Create Namespace**: Maps cloud to Kubernetes namespace
+5. **Load Image**: Loads the local image into Minikube
+  ```bash
+  minikube image load cloud-demo
+  ```
+6. **Create Namespace**: Maps cloud to Kubernetes namespace
    - aws → aws
    - azure → azure
    - gcp → gcp
-6. **Deploy to Kubernetes**: Applies manifests to selected namespace
+7. **Deploy to Kubernetes**: Applies manifests to selected namespace
    ```bash
    kubectl apply -f k8s/deployment.yaml -n <namespace>
    ```
@@ -155,12 +166,35 @@ The `deployment/deploy.js` script orchestrates the complete deployment workflow:
 node deployment/deploy.js
 ```
 
+### One-Command Deployment
+
+```bash
+# From project root
+npm run deploy:k8s
+```
+
+Root-level helper scripts:
+
+- `npm run deploy:k8s` - Runs the policy-driven Docker + Kubernetes deployment flow
+- `npm run sync:argocd` - Updates `argocd/application.yaml` destination namespace from policy selection
+- `npm run test` - Runs all Node tests from `tests/`
+- `npm run start` - Starts the demo app from `app/server.js`
+
+Web API and UI:
+
+- `GET /` - Browser UI with deployment controls
+- `GET /health` - Health check
+- `POST /deploy` - Accepts `preferred_cloud`, `cost_preference`, `latency_requirement`, and required `sla_requirement`; invalid or missing SLA returns HTTP 400
+
 Output:
 ```
+Reading policy...
 Policy selected AWS deployment
-Running command: docker build -t cloud-demo -f docker/Dockerfile .
-Running command: kubectl create namespace aws --dry-run=client -o yaml | kubectl apply -f -
-Running command: kubectl apply -f k8s/deployment.yaml -n aws
+Building Docker image...
+Loading image into Minikube...
+Creating namespace aws...
+Applying Kubernetes manifest to namespace aws...
+Deployment successful
 ```
 
 ## Docker Setup
@@ -198,15 +232,18 @@ File: `.github/workflows/deploy.yml`
 
 ### Trigger
 
-Runs automatically on `push` to the `main` branch.
+Runs automatically on `push` to the `main` branch and can also be started manually with `workflow_dispatch`.
 
-### Build Steps
+### CI/CD Steps
 
 1. **Checkout**: Clones the repository
 2. **Setup Node.js**: Installs Node.js 18
-3. **Install Dependencies**: Runs `npm install` in the app directory
-4. **Build Docker Image**: Creates `cloud-demo:latest` image
-5. **Success Message**: Confirms completion
+3. **Install Dependencies**: Runs `npm ci` in the app directory
+4. **Run Tests**: Executes the full Node test suite
+5. **Prepare Kubernetes Tools**: Installs `kubectl` and Minikube
+6. **Start Minikube**: Boots a local cluster in the GitHub Actions runner
+7. **Deploy**: Runs `npm run deploy:k8s` to build the image, load it into Minikube, and apply the Kubernetes manifest
+8. **Success Message**: Confirms completion
 
 ### Workflow Definition
 
@@ -217,19 +254,56 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
-  build:
+  ci-cd:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 18
-      - run: cd app && npm install
-      - run: docker build -t cloud-demo:latest -f docker/Dockerfile .
-      - run: echo "Policy-driven build pipeline completed successfully!"
+      - run: npm ci || npm install
+        working-directory: ./app
+      - run: npm test
+        working-directory: ./app
+      - uses: azure/setup-kubectl@v4
+        with:
+          version: v1.30.0
+      - uses: medyagh/setup-minikube@latest
+        with:
+          kubernetes-version: v1.30.0
+          driver: docker
+      - run: minikube start --driver=docker
+      - run: npm run deploy:k8s
+      - run: echo "Policy-driven CI/CD pipeline completed successfully!"
 ```
+
+    ## Optional GitOps CD (Argo CD)
+
+    This project also includes optional Argo CD integration for GitOps-style continuous delivery.
+
+    - Argo CD application manifest: `argocd/application.yaml`
+    - Setup and usage guide: `argocd/README.md`
+
+    Typical split:
+
+    - **GitHub Actions (CI)**: install dependencies, run tests, validate changes
+    - **Argo CD (CD)**: continuously reconcile `k8s/` manifests to the cluster
+
+    Policy-aware Argo CD sync:
+
+    - Run `npm run sync:argocd` to update Argo CD destination namespace from policy outcome
+    - `npm run deploy:k8s` runs this sync automatically before Kubernetes deployment
+
+    Quick start:
+
+    ```bash
+    kubectl create namespace argocd
+    kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+    kubectl apply -f argocd/application.yaml
+    ```
 
 ## Complete Setup Instructions
 

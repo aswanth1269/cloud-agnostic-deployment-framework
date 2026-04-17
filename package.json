@@ -1,0 +1,11 @@
+{
+  "name": "cloud-agnostic-deployment-framework",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "deploy:k8s": "node deployment/deploy.js",
+    "sync:argocd": "node deployment/syncArgoFromPolicy.js",
+    "test": "npm --prefix app test",
+    "start": "npm --prefix app start"
+  }
+}

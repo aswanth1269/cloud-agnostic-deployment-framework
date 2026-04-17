@@ -1,21 +1,23 @@
 # Use official Node.js 18 LTS image as base
 FROM node:18
 
-# Set working directory inside container
-WORKDIR /app
+# Keep project-relative imports intact (app -> ../deployment, ../policy-engine)
+WORKDIR /workspace
 
-# Copy package.json and package-lock.json for dependency installation
-# Doing this separately allows Docker to cache the dependency layer
-COPY app/package*.json ./
+# Install app dependencies first for better layer caching
+COPY app/package*.json ./app/
+RUN npm --prefix app install
 
-# Install production dependencies
-RUN npm install
-
-# Copy application source code
-COPY app .
+# Copy runtime folders required by app/server.js and deployment/deploy.js
+COPY app ./app
+COPY deployment ./deployment
+COPY policy-engine ./policy-engine
+COPY k8s ./k8s
+COPY docker ./docker
 
 # Expose port 3000 (Express server port)
 EXPOSE 3000
 
-# Start the application
+# Start the application from the app folder
+WORKDIR /workspace/app
 CMD ["node", "server.js"]

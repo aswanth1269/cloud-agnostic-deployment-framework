@@ -14,12 +14,12 @@ function withTempFile(content) {
 
 test("getDeploymentPolicy reads nested deployment_policy", () => {
   const { dir, filePath } = withTempFile(
-    JSON.stringify({ deployment_policy: { preferred_cloud: "gcp", cost_preference: "low" } })
+    JSON.stringify({ deployment_policy: { preferred_cloud: "gcp", cost_preference: "low", sla_requirement: "99.95" } })
   )
 
   try {
     const policy = getDeploymentPolicy(filePath)
-    assert.deepEqual(policy, { preferred_cloud: "gcp", cost_preference: "low" })
+    assert.deepEqual(policy, { preferred_cloud: "gcp", cost_preference: "low", sla_requirement: "99.95" })
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
   }
@@ -61,7 +61,7 @@ test("evaluatePolicy returns both policy and selected cloud", () => {
   try {
     const result = evaluatePolicy(filePath)
     assert.deepEqual(result.policy, { preferred_cloud: "invalid", cost_preference: "low" })
-    assert.equal(result.selectedCloud, "gcp")
+    assert.equal(result.selectedCloud, "aws")
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
   }
