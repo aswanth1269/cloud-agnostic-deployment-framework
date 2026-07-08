@@ -1,0 +1,38 @@
+{
+  "default_provider": "azure",
+  "weights": {
+    "cost": { "low": 3, "medium": 1, "high": 0 },
+    "latency": { "low": 3, "medium": 1, "high": 0 },
+    "preferred_bonus": 2,
+    "sla_closeness_bonus": 1
+  },
+  "providers": {
+    "aws": {
+      "display_name": "Amazon Web Services",
+      "cost_index": 1,
+      "latency_index": 2,
+      "sla": 99.99,
+      "namespace": "aws",
+      "kube_context_env": "KUBE_CONTEXT_AWS",
+      "region_example": "us-east-1"
+    },
+    "azure": {
+      "display_name": "Microsoft Azure",
+      "cost_index": 2,
+      "latency_index": 3,
+      "sla": 99.95,
+      "namespace": "azure",
+      "kube_context_env": "KUBE_CONTEXT_AZURE",
+      "region_example": "eastus"
+    },
+    "gcp": {
+      "display_name": "Google Cloud Platform",
+      "cost_index": 3,
+      "latency_index": 1,
+      "sla": 99.9,
+      "namespace": "gcp",
+      "kube_context_env": "KUBE_CONTEXT_GCP",
+      "region_example": "us-central1"
+    }
+  }
+}

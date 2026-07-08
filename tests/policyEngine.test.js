@@ -53,7 +53,7 @@ test("getDeploymentPolicy throws on invalid JSON", () => {
   }
 })
 
-test("evaluatePolicy returns both policy and selected cloud", () => {
+test("evaluatePolicy returns policy, selected cloud, and full evaluation", () => {
   const { dir, filePath } = withTempFile(
     JSON.stringify({ deployment_policy: { preferred_cloud: "invalid", cost_preference: "low" } })
   )
@@ -62,6 +62,8 @@ test("evaluatePolicy returns both policy and selected cloud", () => {
     const result = evaluatePolicy(filePath)
     assert.deepEqual(result.policy, { preferred_cloud: "invalid", cost_preference: "low" })
     assert.equal(result.selectedCloud, "aws")
+    assert.ok(Array.isArray(result.evaluation.explanation))
+    assert.ok(Array.isArray(result.evaluation.scores))
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
   }

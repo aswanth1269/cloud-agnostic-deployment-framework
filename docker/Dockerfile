@@ -1,23 +1,42 @@
-# Use official Node.js 18 LTS image as base
-FROM node:18
+# ---------- Stage 1: build the React frontend ----------
+FROM node:22-alpine AS web
 
-# Keep project-relative imports intact (app -> ../deployment, ../policy-engine)
-WORKDIR /workspace
+WORKDIR /web
+COPY web/package*.json ./
+RUN npm install --no-audit --no-fund
+COPY web ./
+RUN npm run build
 
-# Install app dependencies first for better layer caching
-COPY app/package*.json ./app/
-RUN npm --prefix app install
+# ---------- Stage 2: install production dependencies ----------
+FROM node:22-alpine AS deps
 
-# Copy runtime folders required by app/server.js and deployment/deploy.js
+WORKDIR /app
+COPY package.json package-lock.json* ./
+RUN npm ci --omit=dev && npm cache clean --force
+
+# ---------- Stage 3: minimal runtime image ----------
+FROM node:22-alpine
+
+ENV NODE_ENV=production
+WORKDIR /app
+
+# Writable dir for deployment history (also mounted as emptyDir in k8s)
+RUN mkdir -p /app/data && chown node:node /app/data
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json ./
 COPY app ./app
-COPY deployment ./deployment
 COPY policy-engine ./policy-engine
-COPY k8s ./k8s
-COPY docker ./docker
+COPY deployment ./deployment
+COPY argocd/application.yaml argocd/syncApplication.js ./argocd/
+COPY --from=web /web/dist ./web/dist
 
-# Expose port 3000 (Express server port)
 EXPOSE 3000
 
-# Start the application from the app folder
-WORKDIR /workspace/app
-CMD ["node", "server.js"]
+# Never run Node apps as root
+USER node
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:3000/health || exit 1
+
+CMD ["node", "app/server.js"]

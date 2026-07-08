@@ -3,86 +3,82 @@ const assert = require("node:assert/strict")
 const fs = require("node:fs")
 const os = require("node:os")
 const path = require("node:path")
-const { syncArgoApplicationNamespace } = require("../argocd/syncApplication")
+const { syncArgoApplication } = require("../argocd/syncApplication")
 const { syncArgoFromPolicy } = require("../deployment/syncArgoFromPolicy")
 
-function withTempDir() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "argocd-sync-test-"))
+const SAMPLE_MANIFEST = [
+  "apiVersion: argoproj.io/v1alpha1",
+  "kind: Application",
+  "spec:",
+  "  source:",
+  "    repoURL: https://github.com/aswanth1269/cloud-agnostic-deployment-framework.git",
+  "    targetRevision: main",
+  "    path: k8s/overlays/aws",
+  "  destination:",
+  "    server: https://kubernetes.default.svc",
+  "    namespace: aws",
+  "  syncPolicy:",
+  "    automated:",
+  "      prune: true"
+].join("\n")
+
+function withTempManifest() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "argocd-sync-test-"))
+  const appPath = path.join(dir, "application.yaml")
+  fs.writeFileSync(appPath, SAMPLE_MANIFEST, "utf8")
+  return { dir, appPath }
 }
 
-test("syncArgoApplicationNamespace updates destination namespace", () => {
-  const dir = withTempDir()
-  const appPath = path.join(dir, "application.yaml")
-
-  fs.writeFileSync(
-    appPath,
-    [
-      "apiVersion: argoproj.io/v1alpha1",
-      "kind: Application",
-      "spec:",
-      "  destination:",
-      "    server: https://kubernetes.default.svc",
-      "    namespace: aws",
-      "  syncPolicy:",
-      "    automated:",
-      "      prune: true"
-    ].join("\n"),
-    "utf8"
-  )
-
+test("syncArgoApplication updates namespace and overlay path", () => {
+  const { dir, appPath } = withTempManifest()
   try {
-    const result = syncArgoApplicationNamespace("gcp", { appPath })
+    const result = syncArgoApplication("gcp", { appPath, overlayPath: "k8s/overlays/gcp" })
     assert.equal(result.updated, true)
+
     const updated = fs.readFileSync(appPath, "utf8")
     assert.match(updated, /namespace: gcp/)
+    assert.match(updated, /path: k8s\/overlays\/gcp/)
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
   }
 })
 
-test("syncArgoFromPolicy maps selected cloud to namespace", () => {
-  const dir = withTempDir()
-  const policyPath = path.join(dir, "policy.json")
-  const appPath = path.join(dir, "application.yaml")
-
-  fs.writeFileSync(
-    policyPath,
-    JSON.stringify({
-      deployment_policy: {
-        preferred_cloud: "azure",
-        cost_preference: "high",
-        latency_requirement: "high",
-        sla_requirement: "99.95"
-      }
-    }),
-    "utf8"
-  )
-
-  fs.writeFileSync(
-    appPath,
-    [
-      "apiVersion: argoproj.io/v1alpha1",
-      "kind: Application",
-      "spec:",
-      "  destination:",
-      "    server: https://kubernetes.default.svc",
-      "    namespace: aws",
-      "  syncPolicy:",
-      "    automated:",
-      "      prune: true"
-    ].join("\n"),
-    "utf8"
-  )
-
+test("syncArgoApplication reports no-op when already in sync", () => {
+  const { dir, appPath } = withTempManifest()
   try {
-    const result = syncArgoFromPolicy({ policyPath, appPath })
+    const result = syncArgoApplication("aws", { appPath, overlayPath: "k8s/overlays/aws" })
+    assert.equal(result.updated, false)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test("syncArgoFromPolicy maps the policy outcome onto the manifest", () => {
+  const { dir, appPath } = withTempManifest()
+  try {
+    const result = syncArgoFromPolicy({
+      policy: { preferred_cloud: "azure", cost_preference: "high", latency_requirement: "high", sla_requirement: "99.95" },
+      appPath
+    })
+
     assert.equal(result.selected_cloud, "azure")
     assert.equal(result.namespace, "azure")
+    assert.equal(result.overlayPath, "k8s/overlays/azure")
     assert.equal(result.updated, true)
 
     const updated = fs.readFileSync(appPath, "utf8")
     assert.match(updated, /namespace: azure/)
+    assert.match(updated, /path: k8s\/overlays\/azure/)
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
   }
+})
+
+test("syncArgoFromPolicy handles a missing manifest gracefully", () => {
+  const result = syncArgoFromPolicy({
+    policy: { preferred_cloud: "gcp" },
+    appPath: path.join(os.tmpdir(), "missing-application.yaml")
+  })
+  assert.equal(result.updated, false)
+  assert.match(result.reason, /not found/)
 })

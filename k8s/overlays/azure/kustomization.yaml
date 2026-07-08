@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: azure
+labels:
+  - pairs:
+      cloud: azure
+    includeSelectors: false
+resources:
+  - ../../base

@@ -1,48 +1,44 @@
-name: Policy-Driven Deployment Pipeline
+# Manual end-to-end smoke test: spins up Minikube inside the runner and
+# exercises the full policy -> build -> load -> deploy flow.
+# This is a TEST, not a production deployment - production CD is handled
+# by Argo CD reconciling k8s/overlays/<cloud> (see argocd/README.md).
+
+name: E2E Smoke Test (Minikube)
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  ci-cd:
+  smoke:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 22
+          cache: npm
 
-      - name: Install app dependencies
-        working-directory: ./app
-        run: npm ci || npm install
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Run automated tests
-        working-directory: ./app
-        run: npm test
-
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v4
+      - uses: azure/setup-kubectl@v4
         with:
           version: v1.30.0
 
-      - name: Install Minikube
-        uses: medyagh/setup-minikube@latest
+      - uses: medyagh/setup-minikube@latest
         with:
           kubernetes-version: v1.30.0
           driver: docker
 
-      - name: Start Minikube
-        run: minikube start --driver=docker
-
-      - name: Run deployment
+      - name: Policy-driven deployment (local simulation)
         run: npm run deploy:k8s
 
-      - name: Success message
-        run: echo "Policy-driven CI/CD pipeline completed successfully!"
+      - name: Verify rollout
+        run: |
+          NS=$(node -e "console.log(require('./policy-engine/policyEngine').evaluatePolicy().selectedCloud)")
+          kubectl rollout status deployment/cloud-agnostic-demo -n "$NS" --timeout=120s
+          kubectl get pods -n "$NS"

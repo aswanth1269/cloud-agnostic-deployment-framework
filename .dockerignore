@@ -1,0 +1,15 @@
+.git
+.github
+node_modules
+data
+tests
+terraform
+k8s
+*.md
+.env
+.env.*
+.gitignore
+.dockerignore
+eslint.config.js
+web/node_modules
+web/dist

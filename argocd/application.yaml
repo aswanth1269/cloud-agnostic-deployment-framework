@@ -6,12 +6,12 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/your-org/cloud-agnostic-deployment-framework.git
+    repoURL: https://github.com/aswanth1269/cloud-agnostic-deployment-framework.git
     targetRevision: main
-    path: k8s
+    path: k8s/overlays/aws
   destination:
     server: https://kubernetes.default.svc
-    namespace: gcp
+    namespace: aws
   syncPolicy:
     automated:
       prune: true

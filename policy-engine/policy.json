@@ -1,8 +1,8 @@
 {
   "deployment_policy": {
-    "preferred_cloud": "gcp",
-    "cost_preference": "medium",
-    "latency_requirement": "high",
-    "sla_requirement": "99.90"
+    "preferred_cloud": "aws",
+    "cost_preference": "low",
+    "latency_requirement": "low",
+    "sla_requirement": "99.95"
   }
 }

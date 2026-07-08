@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cloud-Agnostic Deployment Framework</title>
+  <meta name="description" content="Policy-driven, cloud-agnostic deployments across AWS, Azure and GCP" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="aurora" aria-hidden="true">
+    <div class="aurora-blob aurora-a"></div>
+    <div class="aurora-blob aurora-b"></div>
+    <div class="aurora-blob aurora-c"></div>
+  </div>
+  <div class="grid-overlay" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-logo" viewBox="0 0 32 32" width="26" height="26" aria-hidden="true">
+        <path d="M16 3 29 10.5v11L16 29 3 21.5v-11L16 3z" fill="none" stroke="url(#lg)" stroke-width="2"/>
+        <circle cx="16" cy="16" r="4.5" fill="url(#lg)"/>
+        <defs>
+          <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#4f8dff"/><stop offset="1" stop-color="#22e0a8"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      <span class="brand-name">CADF</span>
+      <span class="brand-sub">Cloud-Agnostic Deployment Framework</span>
+    </div>
+    <nav class="nav">
+      <a href="#deploy">Deploy</a>
+      <a href="#history">History</a>
+      <a href="#pipeline">Pipeline</a>
+      <a href="https://github.com/aswanth1269/cloud-agnostic-deployment-framework" target="_blank" rel="noreferrer">GitHub</a>
+    </nav>
+    <div class="api-status" id="api-status"><span class="dot dot-wait"></span><span>checking API…</span></div>
+  </header>
+
+  <main class="shell">
+
+    <!-- ============ HERO ============ -->
+    <section class="hero">
+      <div class="hero-copy reveal">
+        <p class="eyebrow">Policy-driven cloud orchestration</p>
+        <h1>Deploy <span class="grad-text">anywhere</span>.<br/>Locked in <span class="grad-text-2">nowhere</span>.</h1>
+        <p class="lede">
+          Declare what matters — cost, latency, SLA — and the weighted policy engine scores
+          AWS, Azure and GCP to pick your target. Async jobs, live log streaming,
+          GitOps-ready manifests.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary btn-lg" href="#deploy">Launch a deployment</a>
+          <a class="btn btn-ghost btn-lg" href="#pipeline">See the pipeline</a>
+        </div>
+        <div class="chip-row">
+          <span class="chip">Docker</span><span class="chip">Kubernetes</span>
+          <span class="chip">Kustomize</span><span class="chip">Argo CD</span>
+          <span class="chip">Terraform</span><span class="chip">GitHub Actions</span>
+        </div>
+      </div>
+
+      <div class="hero-visual reveal" aria-hidden="true">
+        <svg viewBox="0 0 420 420" class="orbit-svg">
+          <defs>
+            <linearGradient id="core" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#4f8dff"/><stop offset="1" stop-color="#22e0a8"/>
+            </linearGradient>
+            <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+              <stop offset="0" stop-color="#4f8dff" stop-opacity="0.35"/>
+              <stop offset="1" stop-color="#4f8dff" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <circle cx="210" cy="210" r="200" fill="url(#glow)"/>
+          <circle cx="210" cy="210" r="150" class="orbit-ring"/>
+          <circle cx="210" cy="210" r="100" class="orbit-ring orbit-ring-dash"/>
+          <g class="spin-slow">
+            <g transform="translate(210 60)">
+              <circle r="26" class="node node-aws"/>
+              <text class="node-label" text-anchor="middle" dy="5">AWS</text>
+            </g>
+            <g transform="translate(80 285)">
+              <circle r="26" class="node node-azure"/>
+              <text class="node-label" text-anchor="middle" dy="5">AZR</text>
+            </g>
+            <g transform="translate(340 285)">
+              <circle r="26" class="node node-gcp"/>
+              <text class="node-label" text-anchor="middle" dy="5">GCP</text>
+            </g>
+          </g>
+          <g>
+            <circle cx="210" cy="210" r="44" fill="url(#core)" class="pulse"/>
+            <text x="210" y="205" text-anchor="middle" class="core-label">POLICY</text>
+            <text x="210" y="222" text-anchor="middle" class="core-label">ENGINE</text>
+          </g>
+        </svg>
+      </div>
+    </section>
+
+    <!-- ============ STATS ============ -->
+    <section class="stats reveal">
+      <div class="stat"><span class="stat-num" id="stat-clouds">3</span><span class="stat-label">cloud targets</span></div>
+      <div class="stat"><span class="stat-num">37</span><span class="stat-label">automated tests</span></div>
+      <div class="stat"><span class="stat-num" id="stat-deploys">0</span><span class="stat-label">deployments run</span></div>
+      <div class="stat"><span class="stat-num">0</span><span class="stat-label">vendor lock-ins</span></div>
+    </section>
+
+    <!-- ============ PROVIDER CARDS ============ -->
+    <section class="providers reveal">
+      <div class="providers-grid" id="providers-grid"><!-- filled by app.js --></div>
+    </section>
+
+    <!-- ============ DEPLOY ============ -->
+    <section class="grid" id="deploy">
+      <article class="card form-card reveal">
+        <div class="card-head">
+          <h2>New deployment</h2>
+          <span class="badge badge-idle" id="mode-badge">dry run</span>
+        </div>
+
+        <form id="deploy-form">
+          <div class="seg-field">
+            <span class="seg-label">Preferred cloud</span>
+            <div class="seg" role="radiogroup" id="seg-cloud">
+              <label><input type="radio" name="preferred_cloud" value="" checked/><span>Auto</span></label>
+              <label><input type="radio" name="preferred_cloud" value="aws"/><span>AWS</span></label>
+              <label><input type="radio" name="preferred_cloud" value="azure"/><span>Azure</span></label>
+              <label><input type="radio" name="preferred_cloud" value="gcp"/><span>GCP</span></label>
+            </div>
+          </div>
+
+          <div class="seg-field">
+            <span class="seg-label">Cost preference</span>
+            <div class="seg" role="radiogroup">
+              <label><input type="radio" name="cost_preference" value="" checked/><span>Any</span></label>
+              <label><input type="radio" name="cost_preference" value="low"/><span>Low</span></label>
+              <label><input type="radio" name="cost_preference" value="medium"/><span>Medium</span></label>
+              <label><input type="radio" name="cost_preference" value="high"/><span>High</span></label>
+            </div>
+          </div>
+
+          <div class="seg-field">
+            <span class="seg-label">Latency requirement</span>
+            <div class="seg" role="radiogroup">
+              <label><input type="radio" name="latency_requirement" value="" checked/><span>Any</span></label>
+              <label><input type="radio" name="latency_requirement" value="low"/><span>Low</span></label>
+              <label><input type="radio" name="latency_requirement" value="medium"/><span>Medium</span></label>
+              <label><input type="radio" name="latency_requirement" value="high"/><span>High</span></label>
+            </div>
+          </div>
+
+          <div class="row-2">
+            <div class="field">
+              <label for="sla_requirement">Minimum SLA (%)</label>
+              <select id="sla_requirement" required></select>
+            </div>
+            <div class="field toggle-field">
+              <span class="seg-label">Execution</span>
+              <label class="toggle">
+                <input type="checkbox" id="dry_run" checked/>
+                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                <span class="toggle-text">Dry run</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="field key-field hidden" id="key-field">
+            <label for="api_key">API key <span class="mut">(sent as x-api-key)</span></label>
+            <input type="password" id="api_key" autocomplete="off" placeholder="required — server has API_KEY set"/>
+          </div>
+
+          <div class="btn-row">
+            <button type="button" class="btn btn-ghost" id="preview-btn">
+              <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M12 5c-5 0-9 4.5-10 7 1 2.5 5 7 10 7s9-4.5 10-7c-1-2.5-5-7-10-7zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8z" fill="currentColor"/></svg>
+              Preview decision
+            </button>
+            <button type="submit" class="btn btn-primary" id="deploy-btn">
+              <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M5 3l16 9-16 9V3z" fill="currentColor"/></svg>
+              Deploy
+            </button>
+          </div>
+          <button type="button" class="link-btn" id="toggle-key">API key settings</button>
+        </form>
+
+        <div id="decision" class="decision hidden">
+          <div class="decision-head">
+            <h3>Policy decision</h3>
+            <span class="cloud-pill" id="decision-cloud"></span>
+          </div>
+          <div id="score-bars" class="score-bars"></div>
+          <ul id="explanation" class="explanation"></ul>
+        </div>
+      </article>
+
+      <article class="card terminal-card reveal">
+        <div class="terminal-chrome">
+          <span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span>
+          <span class="terminal-title">deployment logs</span>
+          <span class="badge badge-idle" id="job-badge">idle</span>
+        </div>
+        <div id="terminal" class="terminal" aria-live="polite">
+          <div class="t-line t-mut">Ready. Launch a deployment or click a history row to replay its logs.</div>
+        </div>
+      </article>
+    </section>
+
+    <!-- ============ HISTORY ============ -->
+    <section class="card table-card reveal" id="history">
+      <div class="table-head">
+        <h2>Deployment history</h2>
+        <button type="button" class="btn btn-ghost btn-sm" id="refresh-history">↻ Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Started</th><th>Cloud</th><th>Mode</th><th>Dry run</th><th>Status</th></tr>
+          </thead>
+          <tbody id="history-body">
+            <tr><td colspan="5" class="empty">No deployments yet — run your first one above.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============ PIPELINE ============ -->
+    <section class="pipeline" id="pipeline">
+      <h2 class="section-title reveal">From policy to production</h2>
+      <p class="section-sub reveal">Every deployment flows through four stages — each one observable, each one testable.</p>
+      <div class="steps">
+        <div class="step reveal">
+          <div class="step-top"><span class="step-num">01</span>
+            <svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 4h16v4H4zM4 10h16v4H4zM4 16h10v4H4z" fill="currentColor" opacity="0.85"/></svg>
+          </div>
+          <h3>Declare policy</h3>
+          <p>Cost, latency and SLA targets. Provider characteristics live in
+          <code>providers.json</code> — the logic is data, not code.</p>
+        </div>
+        <div class="step reveal">
+          <div class="step-top"><span class="step-num">02</span>
+            <svg viewBox="0 0 24 24" width="22" height="22"><path d="M5 20V10m7 10V4m7 16v-7" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg>
+          </div>
+          <h3>Score providers</h3>
+          <p>SLA hard-filter, then weighted scoring across cost and latency fit.
+          Every decision ships with a full explanation.</p>
+        </div>
+        <div class="step reveal">
+          <div class="step-top"><span class="step-num">03</span>
+            <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 2l8 4.5v9L12 20l-8-4.5v-9L12 2zm0 4L8 8.2v5.6l4 2.2 4-2.2V8.2L12 6z" fill="currentColor" opacity="0.85"/></svg>
+          </div>
+          <h3>Build &amp; ship</h3>
+          <p>Async job builds the container, pushes to GHCR (or loads into Minikube)
+          and applies the kustomize overlay for the selected cloud.</p>
+        </div>
+        <div class="step reveal">
+          <div class="step-top"><span class="step-num">04</span>
+            <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 4a8 8 0 1 1-5.7 2.4M12 4V1m0 3l3-2" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round"/></svg>
+          </div>
+          <h3>Reconcile</h3>
+          <p>In GitOps mode Argo CD keeps clusters in sync with the
+          policy-selected overlay. CI builds — Argo deploys.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>Cloud-Agnostic Deployment Framework · MIT License ·
+      <a href="https://github.com/aswanth1269/cloud-agnostic-deployment-framework" target="_blank" rel="noreferrer">Source on GitHub</a>
+    </p>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>

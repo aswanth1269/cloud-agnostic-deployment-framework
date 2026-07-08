@@ -1,6 +1,6 @@
-# Kubernetes Deployment Configuration
-# This manifest deploys the cloud-agnostic demo application to any Kubernetes cluster
-# The deployment is cloud-provider agnostic and can be deployed to AWS, Azure, GCP, or on-premise clusters
+# Local Minikube simulation manifest.
+# Uses the locally built image (cloud-demo:local, never pulled) and a single
+# replica. Real clusters use k8s/base + k8s/overlays/<cloud> instead.
 
 apiVersion: apps/v1
 kind: Deployment
@@ -8,33 +8,35 @@ metadata:
   name: cloud-agnostic-demo
   labels:
     app: cloud-agnostic-demo
-    version: v1
 spec:
-  # Number of application replicas
   replicas: 1
-  
-  # Label selector to identify pods managed by this deployment
   selector:
     matchLabels:
       app: cloud-agnostic-demo
-  
   template:
     metadata:
       labels:
         app: cloud-agnostic-demo
     spec:
+      automountServiceAccountToken: false
       containers:
         - name: cloud-agnostic-demo
-          # Container image - uses local image (loaded via Minikube or Docker daemon)
-          image: cloud-demo
-          # Never pull image from registry - use local image only
-          # This is ideal for development and Minikube environments
+          image: cloud-demo:local
           imagePullPolicy: Never
-          # Port exposed by the application
           ports:
             - containerPort: 3000
               name: http
-          # Health check - ensures pod is ready to receive traffic
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
           livenessProbe:
             httpGet:
               path: /health
@@ -47,11 +49,7 @@ spec:
               port: 3000
             initialDelaySeconds: 5
             periodSeconds: 5
-
 ---
-# Kubernetes Service
-# Exposes the deployment to the cluster and enables load balancing across replicas
-
 apiVersion: v1
 kind: Service
 metadata:
@@ -59,14 +57,9 @@ metadata:
   labels:
     app: cloud-agnostic-demo
 spec:
-  # Service type - ClusterIP means internal cluster access only
   type: ClusterIP
-  
-  # Pod selector - identifies which pods to expose
   selector:
     app: cloud-agnostic-demo
-  
-  # Port mapping configuration
   ports:
     - protocol: TCP
       port: 80

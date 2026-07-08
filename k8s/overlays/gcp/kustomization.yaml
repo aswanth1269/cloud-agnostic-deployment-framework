@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: gcp
+labels:
+  - pairs:
+      cloud: gcp
+    includeSelectors: false
+resources:
+  - ../../base
